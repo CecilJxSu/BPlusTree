@@ -1,2 +1,2 @@
-# BPlusTree
-B+ Tree Implementation demo.
+# B<sup>+</sup> - Tree
+B<sup>+</sup> - Tree Implementation demo.
