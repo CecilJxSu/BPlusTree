@@ -62,18 +62,19 @@ public class BPlusTree<K extends Comparable<K>, D> {
             return null;
         }
 
+        // search in leaf node
         if (node.isLeaf) {
             for (int pos = 0; pos < node.keyLength; pos++) {
                 if (key.compareTo(node.keys[pos]) == 0) {
                     return node.dataList[pos];
                 }
             }
-        }
-
-        int pos = getLocation(node, key);
-        if (pos >= node.childLength) {
+            // not found
             return null;
         }
+
+        // search in non-leaf node
+        int pos = getLocation(node, key);
         return search(node.children[pos], key);
     }
 
