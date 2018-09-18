@@ -21,7 +21,7 @@ public class BPlusTree<K extends Comparable<K>, D> {
         this.dClass = dClass;
         this.degree = degree;
 
-        this.root = initLeaf(degree);
+        this.root = initLeaf();
 
         height = 1;
     }
@@ -86,7 +86,7 @@ public class BPlusTree<K extends Comparable<K>, D> {
         int h = height;
         while (h-- > 0 && !leafNode.isLeaf) {
             pos = getLocation(leafNode, key);
-            leafNode = root.children[pos];
+            leafNode = leafNode.children[pos];
         }
 
         // insert into leaf node
@@ -114,39 +114,29 @@ public class BPlusTree<K extends Comparable<K>, D> {
     }
 
     private void insertFullLeaf(Node<K, D> leaf, K key, D data) {
-        // get pos
-        int pos = getLocation(leaf, key);
-        // create child
-        Node<K, D> child = initLeaf(degree);
-        child.nextNode = leaf.nextNode;
-        leaf.nextNode = child;
-        // insert into first leaf node
-        if (pos < leaf.keyLength) {
-            int i;
-            for (i = leaf.keyLength - 1; i >= pos; i--) {
-                child.keys[i - pos] =  leaf.keys[i];
-                child.dataList[i - pos] = leaf.dataList[i];
-                child.keyLength++;
-            }
-            leaf.keys[pos] = key;
-            leaf.dataList[pos] = data;
-            leaf.keyLength = pos + 1;
-        }
-        // insert into next leaf node
-        else if (pos == leaf.keyLength) {
-            child.keys[0] = key;
-            child.dataList[0] = data;
-            child.keyLength = 1;
+        // split node
+        Node<K, D> splitNode = initLeaf();
+        splitNode.nextNode = leaf.nextNode;
+        leaf.nextNode = splitNode;
 
-            key = leaf.keys[leaf.keyLength - 1];
+        // split half
+        System.arraycopy(leaf.keys, (leaf.keyLength + 1) / 2, splitNode.keys, 0, leaf.keyLength / 2);
+        System.arraycopy(leaf.dataList, (leaf.keyLength + 1) / 2, splitNode.dataList, 0, leaf.keyLength / 2);
+
+        splitNode.keyLength = leaf.keyLength / 2;
+        leaf.keyLength = (leaf.keyLength + 1) / 2;
+
+        if (key.compareTo(splitNode.keys[0]) < 0) {
+            insertNotFullLeaf(leaf, key, data);
+        } else {
+            insertNotFullLeaf(splitNode, key, data);
         }
 
-        // split
-        splitNode(leaf, child, key);
+        addToParent(leaf, splitNode, leaf.keys[leaf.keyLength - 1]);
     }
 
     private Node<K, D> insertRootNode(K key, Node<K, D> lChild, Node<K, D> rChild) {
-        Node<K, D> root = initNonLeaf(degree);
+        Node<K, D> root = initNonLeaf();
         root.keys[0] = key;
         root.keyLength = 1;
         root.children[0] = lChild;
@@ -170,46 +160,66 @@ public class BPlusTree<K extends Comparable<K>, D> {
     }
 
     private void insertFullNode(Node<K, D> node, K key, Node<K, D> child) {
-        // get pos
-        int pos = getLocation(node, key);
-        // create brand new child
-        Node<K, D> newChild = initNonLeaf(degree);
-        newChild.nextNode = node.nextNode;
-        node.nextNode = newChild;
+        // split node
+        Node<K, D> splitNode = initNonLeaf();
 
-        // insert into first node node
-        if (pos < node.keyLength) {
-            int i;
-            for (i = node.keyLength - 1; i >= pos; i--) {
-                newChild.keys[i - pos] =  node.keys[i];
-                newChild.children[i - pos + 1] = node.children[i + 1];
+        //------B* Tree-----//
+        splitNode.nextNode = node.nextNode;
+        node.nextNode = splitNode;
+        //------B* Tree-----//
+
+        if (key.compareTo(node.keys[(node.keyLength + 1) / 2]) < 0) {
+            // insert middle
+            if (key.compareTo(node.keys[(node.keyLength + 1) / 2 - 1]) > 0) {
+                System.arraycopy(node.keys, (node.keyLength + 1) / 2, splitNode.keys, 0, node.keyLength / 2);
+                splitNode.children[0] = child;
+                System.arraycopy(node.children, node.childLength / 2 + 1, splitNode.children, 1, node.childLength / 2);
+
+                splitNode.keyLength = node.keyLength / 2;
+                node.keyLength = (node.keyLength + 1) / 2;
+
+                splitNode.childLength = node.childLength / 2;
+                node.childLength = node.childLength / 2 + 1;
+
+                addToParent(node, splitNode, key);
+                return;
             }
-            node.keys[i] = key;
-            node.keyLength = pos + 1;
-            node.children[i + 1] = child;
-            node.childLength = pos + 2;
-            newChild.keyLength = i - pos + 1;
-            newChild.childLength = i - pos + 2;
+
+            System.arraycopy(node.keys, (node.keyLength + 1) / 2, splitNode.keys, 0, node.keyLength / 2);
+            System.arraycopy(node.children, node.childLength / 2, splitNode.children, 0, (node.childLength + 1) / 2);
+
+            splitNode.keyLength = node.keyLength / 2;
+            node.keyLength = (node.keyLength + 1) / 2;
+
+            splitNode.childLength = (node.childLength + 1) / 2;
+            node.childLength = node.childLength / 2;
+
+            insertNotFullNode(node, key, child);
+
+            K extraKey = node.keys[node.keyLength - 1];
+            node.keyLength--;
+
+            addToParent(node, splitNode, extraKey);
+        } else {
+            System.arraycopy(node.keys, (node.keyLength + 1) / 2 + 1, splitNode.keys, 0, node.keyLength / 2 - 1);
+            System.arraycopy(node.children, node.childLength / 2 + 1, splitNode.children, 0, (node.childLength + 1) / 2 - 1);
+
+            splitNode.keyLength = node.keyLength / 2 - 1;
+            node.keyLength = (node.keyLength + 1) / 2 + 1;
+
+            splitNode.childLength = (node.childLength + 1) / 2 - 1;
+            node.childLength = node.childLength / 2 + 1;
+
+            insertNotFullNode(splitNode, key, child);
+
+            K extraKey = node.keys[node.keyLength - 1];
+            node.keyLength--;
+
+            addToParent(node, splitNode, extraKey);
         }
-        // insert into next node node
-        else if (pos == node.keyLength) {
-            newChild.keys[0] = key;
-            newChild.keyLength = 1;
-
-            newChild.children[0] = node.children[node.childLength - 1];
-            newChild.children[1] = child;
-            newChild.childLength = 2;
-
-            key = node.keys[node.keyLength - 1];
-            node.keyLength -= 1;
-            node.childLength -= 1;
-        }
-
-        // split
-        splitNode(node, newChild, key);
     }
 
-    private void splitNode(Node<K, D> node, Node<K, D> child, K key) {
+    private void addToParent(Node<K, D> node, Node<K, D> child, K key) {
         // split
         if (node.parent == null) {
             root = insertRootNode(key, node, child);
@@ -231,8 +241,8 @@ public class BPlusTree<K extends Comparable<K>, D> {
         return pos;
     }
 
-    private Node<K, D> initLeaf(int degree) {
-        Node<K, D> leaf = new Node<K, D>();
+    private Node<K, D> initLeaf() {
+        Node<K, D> leaf = new Node<>();
         leaf.keyLength = 0;
         leaf.keys = (K[]) Array.newInstance(kClass, degree - 1);
         leaf.childLength = 0;
@@ -244,8 +254,8 @@ public class BPlusTree<K extends Comparable<K>, D> {
         return leaf;
     }
 
-    public Node<K, D> initNonLeaf(int degree) {
-        Node<K, D> nonLeaf = new Node<K, D>();
+    public Node<K, D> initNonLeaf() {
+        Node<K, D> nonLeaf = new Node<>();
         nonLeaf.keyLength = 0;
         nonLeaf.keys = (K[]) Array.newInstance(kClass, degree - 1);
         nonLeaf.childLength = 0;

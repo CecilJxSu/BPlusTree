@@ -11,6 +11,9 @@ public class Main {
         Element e5 = new Element(25, "25");
         Element e6 = new Element(28, "28");
 
+        Element e7 = new Element(11, "11");
+        Element e8 = new Element(13, "13");
+
 
         bTree.insert(e1.getKey(), e1);
         bTree.insert(e2.getKey(), e2);
@@ -18,8 +21,10 @@ public class Main {
         bTree.insert(e4.getKey(), e4);
         bTree.insert(e5.getKey(), e5);
         bTree.insert(e6.getKey(), e6);
+        bTree.insert(e7.getKey(), e7);
+        bTree.insert(e8.getKey(), e8);
 
-        System.out.println(bTree.height);
+        System.out.println("height: " + bTree.height);
         bTree.prettyPrint();
 
         System.out.println(bTree.search(30));
