@@ -1,32 +1,44 @@
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.concurrent.ThreadLocalRandom;
+
 public class Main {
 
     public static void main(String[] args) {
-        BPlusTree<Integer, Element> bTree = new BPlusTree<Integer, Element>(3, Integer.class, Element.class);
+        BPlusTree<Integer, Element> bTree = new BPlusTree<>(4, Integer.class, Element.class);
 
-        Element e1 = new Element(10, "10");
-        Element e2 = new Element(20, "20");
-        Element e3 = new Element(30, "30");
-        Element e4 = new Element(15, "15");
+        Set<Integer> dataSet = getDataSet(1000000, 10000000);
+        dataSet.forEach(e -> {
+            Element elem = new Element(e, e + "");
+            bTree.insert(elem.getKey(), elem);
+        });
 
-        Element e5 = new Element(25, "25");
-        Element e6 = new Element(28, "28");
+        System.out.println("Tree's height: " + bTree.height);
 
-        Element e7 = new Element(11, "11");
-        Element e8 = new Element(13, "13");
+        // too large output
+        // bTree.prettyPrint();
 
+        List<Integer> notFound = new ArrayList<>();
+        dataSet.forEach(i -> {
+            Element e = bTree.search(i);
+            if (e == null) {
+                notFound.add(i);
+            }
+        });
 
-        bTree.insert(e1.getKey(), e1);
-        bTree.insert(e2.getKey(), e2);
-        bTree.insert(e3.getKey(), e3);
-        bTree.insert(e4.getKey(), e4);
-        bTree.insert(e5.getKey(), e5);
-        bTree.insert(e6.getKey(), e6);
-        bTree.insert(e7.getKey(), e7);
-        bTree.insert(e8.getKey(), e8);
+        System.out.println("Not found number: " + notFound.size());
+    }
 
-        System.out.println("height: " + bTree.height);
-        bTree.prettyPrint();
-
-        System.out.println(bTree.search(30));
+    static Set<Integer> getDataSet(int num, int maxElement) {
+        Set<Integer> dataSet = new HashSet<>();
+        int e;
+        for (int i = 0; i < num; i++) {
+            do {
+                e = ThreadLocalRandom.current().nextInt(0, maxElement);
+            } while (!dataSet.add(e));
+        }
+        return dataSet;
     }
 }

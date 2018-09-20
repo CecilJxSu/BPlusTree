@@ -13,8 +13,8 @@ public class BPlusTree<K extends Comparable<K>, D> {
     private Class<D> dClass;
 
     public BPlusTree(int degree, Class<K> kClass, Class<D> dClass) {
-        if (degree < 3) {
-            throw new BPlusException("degree must greater than 2");
+        if (degree < 4) {
+            throw new BPlusException("degree must greater or equals to 4");
         }
 
         this.kClass = kClass;
@@ -143,6 +143,9 @@ public class BPlusTree<K extends Comparable<K>, D> {
         root.children[1] = rChild;
         root.childLength = 2;
         height++;
+
+        lChild.parent = root;
+        rChild.parent = root;
         return root;
     }
 
@@ -157,6 +160,8 @@ public class BPlusTree<K extends Comparable<K>, D> {
         node.keyLength += 1;
         node.children[i + 1] = child;
         node.childLength += 1;
+
+        child.parent = node;
     }
 
     private void insertFullNode(Node<K, D> node, K key, Node<K, D> child) {
@@ -168,69 +173,44 @@ public class BPlusTree<K extends Comparable<K>, D> {
         node.nextNode = splitNode;
         //------B* Tree-----//
 
-        if (key.compareTo(node.keys[(node.keyLength + 1) / 2]) < 0) {
-            // insert middle
-            if (key.compareTo(node.keys[(node.keyLength + 1) / 2 - 1]) > 0) {
-                System.arraycopy(node.keys, (node.keyLength + 1) / 2, splitNode.keys, 0, node.keyLength / 2);
-                splitNode.children[0] = child;
-                System.arraycopy(node.children, node.childLength / 2 + 1, splitNode.children, 1, node.childLength / 2);
+        // split half
+        System.arraycopy(node.keys, (node.keyLength + 1) / 2, splitNode.keys, 0, node.keyLength / 2);
+        System.arraycopy(node.children, (node.keyLength + 1) / 2, splitNode.children, 0, node.keyLength / 2 + 1);
 
-                splitNode.keyLength = node.keyLength / 2;
-                node.keyLength = (node.keyLength + 1) / 2;
+        splitNode.keyLength = node.keyLength / 2;
+        splitNode.childLength = node.keyLength / 2 + 1;
 
-                splitNode.childLength = node.childLength / 2;
-                node.childLength = node.childLength / 2 + 1;
+        node.childLength = (node.keyLength + 1) / 2;
+        node.keyLength = (node.keyLength + 1) / 2;
 
-                addToParent(node, splitNode, key);
-                return;
-            }
+        K extraKey = node.keys[node.keyLength - 1];
+        node.keyLength--;
 
-            System.arraycopy(node.keys, (node.keyLength + 1) / 2, splitNode.keys, 0, node.keyLength / 2);
-            System.arraycopy(node.children, node.childLength / 2, splitNode.children, 0, (node.childLength + 1) / 2);
-
-            splitNode.keyLength = node.keyLength / 2;
-            node.keyLength = (node.keyLength + 1) / 2;
-
-            splitNode.childLength = (node.childLength + 1) / 2;
-            node.childLength = node.childLength / 2;
-
-            insertNotFullNode(node, key, child);
-
-            K extraKey = node.keys[node.keyLength - 1];
-            node.keyLength--;
-
-            addToParent(node, splitNode, extraKey);
-        } else {
-            System.arraycopy(node.keys, (node.keyLength + 1) / 2 + 1, splitNode.keys, 0, node.keyLength / 2 - 1);
-            System.arraycopy(node.children, node.childLength / 2 + 1, splitNode.children, 0, (node.childLength + 1) / 2 - 1);
-
-            splitNode.keyLength = node.keyLength / 2 - 1;
-            node.keyLength = (node.keyLength + 1) / 2 + 1;
-
-            splitNode.childLength = (node.childLength + 1) / 2 - 1;
-            node.childLength = node.childLength / 2 + 1;
-
-            insertNotFullNode(splitNode, key, child);
-
-            K extraKey = node.keys[node.keyLength - 1];
-            node.keyLength--;
-
-            addToParent(node, splitNode, extraKey);
+        // reset child's parent
+        for (int i = 0 ; i < splitNode.childLength; i++) {
+            splitNode.children[i].parent = splitNode;
         }
+
+        if (key.compareTo(extraKey) < 0) {
+            insertNotFullNode(node, key, child);
+            child.parent = node;
+        } else {
+            insertNotFullNode(splitNode, key, child);
+            child.parent = splitNode;
+        }
+
+        addToParent(node, splitNode, extraKey);
     }
 
     private void addToParent(Node<K, D> node, Node<K, D> child, K key) {
         // split
         if (node.parent == null) {
             root = insertRootNode(key, node, child);
-            node.parent = root;
         } else if (node.parent.keyLength < degree - 1) {
             insertNotFullNode(node.parent, key, child);
         } else {
             insertFullNode(node.parent, key, child);
         }
-
-        child.parent = node.parent;
     }
 
     private int getLocation(Node<K, D> node, K key) {
