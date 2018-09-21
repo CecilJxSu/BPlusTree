@@ -89,6 +89,13 @@ public class BPlusTree<K extends Comparable<K>, D> {
             leafNode = leafNode.children[pos];
         }
 
+        // duplicate key, update data
+        pos = getLocation(leafNode, key);
+        if (pos < leafNode.keyLength && key.compareTo(leafNode.keys[pos]) == 0) {
+            leafNode.dataList[pos] = data;
+            return;
+        }
+
         // insert into leaf node
         if (leafNode.keyLength < degree - 1) {
             insertNotFullLeaf(leafNode, key, data);
