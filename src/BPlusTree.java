@@ -54,32 +54,20 @@ public class BPlusTree<K extends Comparable<K>, D> {
     }
 
     public D search(K key) {
-        return search(root, key);
-    }
-
-    private D search(Node<K, D> node, K key) {
-        if (node == null) {
-            return null;
-        }
-
-        // find position
-        int pos = getLocation(node, key);
+        // leaf node
+        Node<K, D> leafNode = searchToLeaf(key);
 
         // search in leaf node
-        if (node.isLeaf) {
-            if (key.compareTo(node.keys[pos]) == 0) {
-                return node.dataList[pos];
-            }
-            // not found
-            return null;
+        int pos = getLocation(leafNode, key);
+        if (key.compareTo(leafNode.keys[pos]) == 0) {
+            return leafNode.dataList[pos];
         }
-
-        // search in non-leaf node
-        return search(node.children[pos], key);
+        // not found
+        return null;
     }
 
-    public void insert(K key, D data) {
-        // non-leaf node
+    public Node<K, D> searchToLeaf(K key) {
+        // leaf node
         Node<K, D> leafNode = root;
         int pos;
         // 查找适合插入的leafNode
@@ -88,9 +76,15 @@ public class BPlusTree<K extends Comparable<K>, D> {
             pos = getLocation(leafNode, key);
             leafNode = leafNode.children[pos];
         }
+        return leafNode;
+    }
+
+    public void insert(K key, D data) {
+        // leaf node
+        Node<K, D> leafNode = searchToLeaf(key);
 
         // duplicate key, update data
-        pos = getLocation(leafNode, key);
+        int pos = getLocation(leafNode, key);
         if (pos < leafNode.keyLength && key.compareTo(leafNode.keys[pos]) == 0) {
             leafNode.dataList[pos] = data;
             return;
