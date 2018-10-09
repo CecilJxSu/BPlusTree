@@ -4,6 +4,8 @@ public class BPlusTree<K extends Comparable<K>, D> {
 
     private int degree;
 
+    private int maxKeyLength;
+
     public int height;
 
     private Node<K, D> root;
@@ -24,6 +26,7 @@ public class BPlusTree<K extends Comparable<K>, D> {
         this.root = initLeaf();
 
         height = 1;
+        maxKeyLength = degree - 1;
     }
 
     public void prettyPrint() {
@@ -59,7 +62,7 @@ public class BPlusTree<K extends Comparable<K>, D> {
 
         // search in leaf node
         int pos = getLocation(leafNode, key);
-        if (key.compareTo(leafNode.keys[pos]) == 0) {
+        if (pos < leafNode.keyLength && key.compareTo(leafNode.keys[pos]) == 0) {
             return leafNode.dataList[pos];
         }
         // not found
@@ -214,6 +217,206 @@ public class BPlusTree<K extends Comparable<K>, D> {
         }
     }
 
+    public D delete(K key) {
+        Node<K, D> leafNode = searchToLeaf(key);
+
+        final int pos = getLocation(leafNode, key);
+        if (pos < leafNode.keyLength && key.compareTo(leafNode.keys[pos]) == 0) {
+            D value = leafNode.dataList[pos];
+            // delete key
+            for (int i = pos; i < leafNode.keyLength - 1; i++) {
+                leafNode.keys[i] = leafNode.keys[i + 1];
+                leafNode.dataList[i] = leafNode.dataList[i + 1];
+            }
+            leafNode.keyLength--;
+
+            // keyLength greater than half of maxLength or leafNode is root node when leafNode's parent is null;
+            if (leafNode.keyLength >= maxKeyLength / 2 || leafNode.parent == null) {
+                return value;
+            }
+
+            int parentPos = getLocation(leafNode.parent, key);
+
+            Node<K, D> lNode;
+            Node<K, D> rNode;
+            Node<K, D> siblingNode;
+
+            if (parentPos >= leafNode.parent.keyLength) {
+                parentPos--;
+                siblingNode = leafNode.parent.children[parentPos];
+            } else {
+                siblingNode = leafNode.parent.children[parentPos + 1];
+            }
+            lNode = leafNode.parent.children[parentPos];
+            rNode = leafNode.parent.children[parentPos + 1];
+
+            if (siblingNode.keyLength <= maxKeyLength / 2 + 1) {
+                leafNodeFusing(lNode, rNode, parentPos);
+            } else {
+                leafNodeSharing(lNode, rNode, parentPos);
+            }
+
+            return value;
+        }
+
+        return null;
+    }
+
+    private void deleteParent(Node<K, D> node, final int pos) {
+        K key = node.keys[pos];
+        for (int i = pos; i < node.keyLength - 1; i++) {
+            node.keys[i] = node.keys[i + 1];
+            node.children[i + 1] = node.children[i + 2];
+        }
+        node.keyLength--;
+        node.childLength--;
+
+        if (node.keyLength >= maxKeyLength / 2) {
+            return;
+        }
+
+        if (node.parent == null) {
+            if (node.keyLength == 0) {
+                node.children[0].parent = null;
+                root = node.children[0];
+                deleteNode(node);
+            }
+            return;
+        }
+
+        int parentPos = getLocation(node.parent, key);
+
+        Node<K, D> lNode;
+        Node<K, D> rNode;
+        Node<K, D> siblingNode;
+        if (parentPos >= node.parent.keyLength) {
+            parentPos--;
+            siblingNode = node.parent.children[parentPos];
+        } else {
+            siblingNode = node.parent.children[parentPos + 1];
+        }
+        lNode = node.parent.children[parentPos];
+        rNode = node.parent.children[parentPos + 1];
+
+        if (siblingNode.keyLength <= maxKeyLength / 2 + 1) {
+            nonLeafNodeFusing(lNode, rNode, parentPos);
+        } else {
+            nonLeafNodeSharing(lNode, rNode, parentPos);
+        }
+    }
+
+    private void leafNodeFusing(Node<K, D> lNode, Node<K, D> rNode, int pos) {
+        // all of rNode's keys and data transfer to lNode.
+        for (int i = 0; i < rNode.keyLength; i++) {
+            lNode.keys[lNode.keyLength + i] = rNode.keys[i];
+            lNode.dataList[lNode.keyLength + i] = rNode.dataList[i];
+        }
+        lNode.keyLength += rNode.keyLength;
+
+        lNode.nextNode = rNode.nextNode;
+
+        deleteParent(lNode.parent, pos);
+
+        deleteNode(rNode);
+    }
+
+    private void nonLeafNodeFusing(Node<K, D> lNode, Node<K, D> rNode, int pos) {
+        lNode.keys[lNode.keyLength] = lNode.parent.keys[pos];
+        lNode.keyLength++;
+        // all of rNode's keys and data transfer to lNode.
+        for (int i = 0; i < rNode.keyLength; i++) {
+            lNode.keys[lNode.keyLength + i] = rNode.keys[i];
+        }
+        lNode.keyLength += rNode.keyLength;
+
+        for (int i = 0; i < rNode.childLength; i++) {
+            lNode.children[lNode.childLength + i] = rNode.children[i];
+            lNode.children[lNode.childLength + i].parent = lNode;
+        }
+        lNode.childLength += rNode.childLength;
+
+        lNode.nextNode = rNode.nextNode;
+
+        deleteParent(lNode.parent, pos);
+
+        deleteNode(rNode);
+    }
+
+    private void leafNodeSharing(Node<K, D> lNode, Node<K, D> rNode, int pos) {
+        if (lNode.keyLength > rNode.keyLength) {
+            // left sharing to right
+            int i;
+            for (i = rNode.keyLength; i > 0; i--) {
+                rNode.keys[i] = rNode.keys[i - 1];
+                rNode.dataList[i] = rNode.dataList[i - 1];
+            }
+            rNode.keys[i] = lNode.keys[lNode.keyLength - 1];
+            rNode.dataList[i] = lNode.dataList[lNode.keyLength - 1];
+            rNode.keyLength++;
+            lNode.keyLength--;
+        } else {
+            // right sharing to left
+            lNode.keys[lNode.keyLength] = rNode.keys[0];
+            lNode.dataList[lNode.keyLength] = rNode.dataList[0];
+            for (int i = 0; i < rNode.keyLength - 1; i++) {
+                rNode.keys[i] = rNode.keys[i + 1];
+                rNode.dataList[i] = rNode.dataList[i + 1];
+
+            }
+            rNode.keyLength--;
+            lNode.keyLength++;
+        }
+
+        // update parent's key.
+        lNode.parent.keys[pos] = lNode.keys[lNode.keyLength - 1];
+    }
+
+    private void nonLeafNodeSharing(Node<K, D> lNode, Node<K, D> rNode, int pos) {
+        if (lNode.keyLength > rNode.keyLength) {
+            // left sharing to right
+            for (int i = rNode.keyLength - 1; i >= 0; i--) {
+                rNode.keys[i + 2] = rNode.keys[i];
+            }
+            for (int i = rNode.childLength - 1; i >= 0; i--) {
+                rNode.children[i + 2] = rNode.children[i];
+            }
+            rNode.keys[1] = lNode.parent.keys[pos];
+            rNode.keys[0] = lNode.keys[lNode.keyLength - 1];
+            lNode.parent.keys[pos] = lNode.keys[lNode.keyLength - 2];
+            rNode.keyLength += 2;
+            lNode.keyLength -= 2;
+
+            rNode.children[1] = lNode.children[lNode.childLength - 1];
+            rNode.children[0] = lNode.children[lNode.childLength - 2];
+            rNode.childLength += 2;
+            lNode.childLength -= 2;
+            // update parent.
+            rNode.children[1].parent = rNode;
+            rNode.children[0].parent = rNode;
+        } else {
+            // right sharing to left
+            lNode.keys[lNode.keyLength] = lNode.parent.keys[pos];
+            lNode.keys[lNode.keyLength + 1] = rNode.keys[0];
+            lNode.parent.keys[pos] = rNode.keys[1];
+            lNode.keyLength += 2;
+
+            for (int i = 2; i < rNode.keyLength; i++) {
+                rNode.keys[i - 2] = rNode.keys[i];
+            }
+            rNode.keyLength -= 2;
+
+            lNode.children[lNode.childLength] = rNode.children[0];
+            lNode.children[lNode.childLength + 1] = rNode.children[1];
+            lNode.children[lNode.childLength].parent = lNode;
+            lNode.children[lNode.childLength + 1].parent = lNode;
+            lNode.childLength += 2;
+            for (int i = 2; i < rNode.childLength; i++) {
+                rNode.children[i - 2] = rNode.children[i];
+            }
+            rNode.childLength -= 2;
+        }
+    }
+
     private int getLocation(Node<K, D> node, K key) {
         int pos = 0;
         while (pos < node.keyLength && key.compareTo(node.keys[pos]) > 0) {
@@ -235,7 +438,7 @@ public class BPlusTree<K extends Comparable<K>, D> {
         return leaf;
     }
 
-    public Node<K, D> initNonLeaf() {
+    private Node<K, D> initNonLeaf() {
         Node<K, D> nonLeaf = new Node<>();
         nonLeaf.keyLength = 0;
         nonLeaf.keys = (K[]) Array.newInstance(kClass, degree - 1);
@@ -246,5 +449,13 @@ public class BPlusTree<K extends Comparable<K>, D> {
         nonLeaf.dataList = null;
         nonLeaf.isLeaf = false;
         return nonLeaf;
+    }
+
+    private void deleteNode(Node<K, D> node) {
+        node.keys = null;
+        node.children = null;
+        node.dataList = null;
+        node.parent = null;
+        node.nextNode = null;
     }
 }
