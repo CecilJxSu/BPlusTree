@@ -1,4 +1,7 @@
 import java.lang.reflect.Array;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 
 public class BPlusTree<K extends Comparable<K>, D> {
 
@@ -30,29 +33,32 @@ public class BPlusTree<K extends Comparable<K>, D> {
     }
 
     public void prettyPrint() {
-        prettyPrint(root);
-    }
+        List<Node<K, D>> nodes = Collections.singletonList(root);
+        while (!nodes.isEmpty()) {
+            List<Node<K, D>> children = new ArrayList<>();
+            for (int nodePos = 0; nodePos < nodes.size(); nodePos++) {
+                Node<K, D> node = nodes.get(nodePos);
+                for (int i = 0; i < node.keyLength; i++) {
+                    if (i == 0 && nodePos != 0) {
+                        if (node.parent == nodes.get(nodePos - 1).parent) {
+                            System.out.print("  ");
+                        } else {
+                            System.out.print("  |  ");
+                        }
+                    }
+                    System.out.print(node.keys[i]);
+                    if (i != node.keyLength - 1) {
+                        System.out.print(",");
+                    }
+                }
 
-    private void prettyPrint(Node<K, D> node) {
-        for (int i = 0; i < node.keyLength; i++) {
-            if (i == node.keyLength - 1) {
-                System.out.print(node.keys[i]);
-            } else {
-                System.out.print(node.keys[i] + " ");
+                for (int i = 0; i < node.childLength; i++) {
+                    children.add(node.children[i]);
+                }
             }
-        }
-        Node<K, D> nextNode = node.nextNode;
-        while (nextNode != null) {
-            System.out.print(" |");
-            for (int i = 0; i < nextNode.keyLength; i++) {
-                System.out.print(" " + nextNode.keys[i]);
-            }
-            nextNode = nextNode.nextNode;
-        }
 
-        System.out.println();
-        if (node.children != null && node.childLength > 0) {
-           prettyPrint(node.children[0]);
+            System.out.println();
+            nodes = children;
         }
     }
 
@@ -172,10 +178,10 @@ public class BPlusTree<K extends Comparable<K>, D> {
         // split node
         Node<K, D> splitNode = initNonLeaf();
 
-        //------B* Tree-----//
-        splitNode.nextNode = node.nextNode;
-        node.nextNode = splitNode;
-        //------B* Tree-----//
+        // ------B* Tree-----
+        // splitNode.nextNode = node.nextNode;
+        // node.nextNode = splitNode;
+        // ------B* Tree-----
 
         // split half
         System.arraycopy(node.keys, (node.keyLength + 1) / 2, splitNode.keys, 0, node.keyLength / 2);
@@ -335,7 +341,9 @@ public class BPlusTree<K extends Comparable<K>, D> {
         }
         lNode.childLength += rNode.childLength;
 
-        lNode.nextNode = rNode.nextNode;
+        // ------B* Tree-----
+        // lNode.nextNode = rNode.nextNode;
+        // ------B* Tree-----
 
         deleteParent(lNode.parent, pos);
 
