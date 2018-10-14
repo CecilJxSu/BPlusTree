@@ -5,11 +5,13 @@ import java.util.List;
 
 public class BPlusTree<K extends Comparable<K>, D> {
 
+    public int height;
+
+    public Node<K, D> leaf;
+
     private int degree;
 
     private int maxKeyLength;
-
-    public int height;
 
     private Node<K, D> root;
 
@@ -27,6 +29,7 @@ public class BPlusTree<K extends Comparable<K>, D> {
         this.degree = degree;
 
         this.root = initLeaf();
+        this.leaf = this.root;
 
         height = 1;
         maxKeyLength = degree - 1;
@@ -465,5 +468,22 @@ public class BPlusTree<K extends Comparable<K>, D> {
         node.dataList = null;
         node.parent = null;
         node.nextNode = null;
+    }
+
+    public void printAllKeys() {
+        Node<K, D> leaf = this.leaf;
+        while (leaf != null) {
+            for (int i = 0; i < leaf.keyLength; i++) {
+                System.out.print(leaf.keys[i]);
+                if (i != leaf.keyLength - 1) {
+                    System.out.print(",");
+                }
+            }
+            leaf = leaf.nextNode;
+            if (leaf != null) {
+                System.out.print(",");
+            }
+        }
+        System.out.println();
     }
 }
